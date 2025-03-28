@@ -30,8 +30,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get video ID
       const videoId = ytdl.getVideoID(url);
       
-      // Get video info
-      const info = await ytdl.getInfo(videoId);
+      // Get video info with increased timeout and requestOptions
+      const info = await ytdl.getInfo(videoId, {
+        requestOptions: {
+          headers: {
+            // Add a user agent to avoid being blocked
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          }
+        }
+      });
       
       // Extract formats with both audio and video (typically MP4)
       const formats = info.formats
@@ -44,6 +51,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Add estimated size if available (contentLength is in bytes)
           size: format.contentLength ? parseInt(format.contentLength) : undefined
         }));
+      
+      // Sort formats by resolution (high to low)
+      formats.sort((a, b) => {
+        const aRes = parseInt(a.qualityLabel?.replace('p', '') || '0');
+        const bRes = parseInt(b.qualityLabel?.replace('p', '') || '0');
+        return bRes - aRes;
+      });
       
       // Format duration
       const lengthSeconds = parseInt(info.videoDetails.lengthSeconds);
@@ -88,7 +102,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { videoId, itag } = validationResult.data;
       
       // Get video info for title (for filename)
-      const info = await ytdl.getBasicInfo(videoId);
+      const info = await ytdl.getBasicInfo(videoId, {
+        requestOptions: {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          }
+        }
+      });
       
       // Create a sanitized filename
       let filename = info.videoDetails.title
@@ -102,9 +122,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.setHeader('Content-Type', 'video/mp4');
       
-      // Get the video stream
+      // Get the video stream with more specific options
       const videoStream = ytdl(videoId, {
-        quality: itag
+        quality: itag,
+        requestOptions: {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          }
+        }
       });
       
       // Handle stream errors
